@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Text;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Models;
@@ -127,17 +126,19 @@ public static partial class McpMod
         };
     }
 
+    // Enumerate the game's canonical model registry rather than reflectively
+    // constructing fresh instances per-type. Fresh instances never have
+    // InitId() called on them (that only happens for instances stored in
+    // ModelDb._contentById), so card.Id.Entry comes back empty and the
+    // discoveredIds filter drops everything. ModelDb.AllCards also naturally
+    // includes mod-injected cards.
     private static IEnumerable<WikiCandidate> BuildCardWikiCandidates(HashSet<string> discoveredIds)
     {
         var byId = new Dictionary<string, WikiCandidate>(StringComparer.OrdinalIgnoreCase);
-        foreach (var type in GetLoadableTypes(typeof(CardModel).Assembly))
+        foreach (var card in ModelDb.AllCards)
         {
-            if (type == null || type.IsAbstract || !typeof(CardModel).IsAssignableFrom(type))
-                continue;
-
-            var card = TryCreateModel<CardModel>(type);
-            var id = SafeGetText(() => card?.Id.Entry);
-            if (card == null || string.IsNullOrWhiteSpace(id) || !discoveredIds.Contains(id))
+            var id = SafeGetText(() => card.Id.Entry);
+            if (string.IsNullOrWhiteSpace(id) || !discoveredIds.Contains(id))
                 continue;
 
             byId.TryAdd(id, new WikiCandidate(
@@ -155,14 +156,10 @@ public static partial class McpMod
     private static IEnumerable<WikiCandidate> BuildRelicWikiCandidates(HashSet<string> discoveredIds)
     {
         var byId = new Dictionary<string, WikiCandidate>(StringComparer.OrdinalIgnoreCase);
-        foreach (var type in GetLoadableTypes(typeof(RelicModel).Assembly))
+        foreach (var relic in ModelDb.AllRelics)
         {
-            if (type == null || type.IsAbstract || !typeof(RelicModel).IsAssignableFrom(type))
-                continue;
-
-            var relic = TryCreateModel<RelicModel>(type);
-            var id = SafeGetText(() => relic?.Id.Entry);
-            if (relic == null || string.IsNullOrWhiteSpace(id) || !discoveredIds.Contains(id))
+            var id = SafeGetText(() => relic.Id.Entry);
+            if (string.IsNullOrWhiteSpace(id) || !discoveredIds.Contains(id))
                 continue;
 
             byId.TryAdd(id, new WikiCandidate(
@@ -175,24 +172,6 @@ public static partial class McpMod
         }
 
         return byId.Values;
-    }
-
-    private static IEnumerable<Type?> GetLoadableTypes(Assembly assembly)
-    {
-        try
-        {
-            return assembly.GetTypes();
-        }
-        catch (ReflectionTypeLoadException ex)
-        {
-            return ex.Types.Where(type => type != null);
-        }
-    }
-
-    private static T? TryCreateModel<T>(Type type) where T : class
-    {
-        try { return Activator.CreateInstance(type, nonPublic: true) as T; }
-        catch { return null; }
     }
 
     private static Dictionary<string, object?> BuildWikiResult(WikiCandidate candidate, double score)
@@ -360,8 +339,12 @@ public static partial class McpMod
         if (queryToken.Equals(candidateToken, StringComparison.OrdinalIgnoreCase))
             return 1.0;
 
-        if (candidateToken.Contains(queryToken, StringComparison.OrdinalIgnoreCase)
-            || queryToken.Contains(candidateToken, StringComparison.OrdinalIgnoreCase))
+        // Require >=3 chars on the candidate token for the substring shortcut:
+        // single-letter words like "a"/"I" otherwise trivially substring-match
+        // arbitrary queries and produce spurious results for gibberish input.
+        if (candidateToken.Length >= 3
+            && (candidateToken.Contains(queryToken, StringComparison.OrdinalIgnoreCase)
+                || queryToken.Contains(candidateToken, StringComparison.OrdinalIgnoreCase)))
             return 0.88;
 
         var distance = LevenshteinDistance(queryToken, candidateToken);
