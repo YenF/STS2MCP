@@ -839,7 +839,8 @@ public static partial class McpMod
             foreach (var card in cards)
             {
                 string starCost = card.TryGetValue("star_cost", out var sc) && sc != null ? $" + {sc} star" : "";
-                sb.AppendLine($"- [{card["index"]}] **{card["name"]}** ({card["cost"]} energy{starCost}) [{card["type"]}] {card["rarity"]} - {card["description"]}");
+                string selected = card.TryGetValue("is_selected", out var sel) && sel is true ? " **(SELECTED)**" : "";
+                sb.AppendLine($"- [{card["index"]}] **{card["name"]}** ({card["cost"]} energy{starCost}) [{card["type"]}] {card["rarity"]}{selected} - {card["description"]}");
             }
             sb.AppendLine();
         }
@@ -976,7 +977,7 @@ public static partial class McpMod
                 sb.AppendLine($"- [{relic["index"]}] **{relic["name"]}**{rarity} - {relic["description"]}");
             }
             sb.AppendLine();
-            sb.AppendLine("Use `treasure_claim_relic(relic_index)` to claim a relic.");
+            sb.AppendLine("Use `{\"action\": \"claim_treasure_relic\", \"index\": N}` to claim a relic.");
         }
         else
         {

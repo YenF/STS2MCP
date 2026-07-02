@@ -12,14 +12,17 @@
 - When targeting, always provide `target` for single-target cards. Entity IDs are UPPER_SNAKE_CASE with a `_0` suffix (e.g. `KIN_PRIEST_0`).
 
 ### Event & Reward Flow
-- Events: `event_choose_option`. After choosing, there's often a "Proceed" option at index 0.
-- Rest sites: `rest_choose_option`, then `proceed_to_map`.
-- Rewards: claim from right-to-left (highest index first) to avoid index shifting. Card rewards open a sub-screen; use `rewards_pick_card` or `rewards_skip_card`.
+- **Events**: Use `choose_event_option` with `index` (integer). If ancient event dialogue is active, use `advance_dialogue`.
+- **Rest sites (Campfire)**: Use `choose_rest_option` with `index`, then use `proceed`.
+- **Rewards screen**: You MUST claim Gold, Relics, and Potions first using `claim_reward`. 
+- **Opening Card Rewards**: To see or skip card choices, you MUST first select the card reward item on the rewards screen using `claim_reward`. This transitions the game state to the `CARD_REWARD` screen.
+- **Card Selection screen**: Once on the `CARD_REWARD` screen, look at the cards. Choose a card using `select_card_reward` with `card_index`, or choose `skip_card_reward` to skip if none fit your deck.
+- **Proceeding**: Only select `proceed` once all valuable rewards (Gold, Relics, Potions, Cards) have been resolved.
 
-### Potions
-- `use_potion(slot=N)` — slot is the potion slot index, not a card index.
-- `discard_potion(slot=N)` — discard a potion to free up the slot when full.
-- Potions don't cost energy or count as card plays. Use buff potions BEFORE playing cards.
+### Reward Collection Non-Negotiables
+- **GOLD AND RELICS**: Gold and Relics must always be claimed. Never leave them unclaimed.
+- **NEVER SKIP CARDS EARLY**: Do NOT attempt to skip card rewards directly from the `REWARDS` screen (it will fail). You MUST open the card reward first, view the options, and only then choose to select or skip them.
+- **NEVER PROCEED EARLY**: Selecting `proceed` permanently closes the reward screen and discards any unclaimed items. Claim all non-card items first, open the card reward screen, make your card decision, and only then click `proceed`.
 
 ---
 

@@ -1072,7 +1072,8 @@ public static partial class McpMod
 
         battle["round"] = combatState.RoundNumber;
         battle["turn"] = combatState.CurrentSide.ToString().ToLower();
-        battle["is_play_phase"] = CombatManager.Instance.IsPlayPhase;
+        var player = LocalContext.GetMe(runState);
+        battle["is_play_phase"] = player?.PlayerCombatState?.Phase == PlayerTurnPhase.Play;
 
         // Enemies
         var enemies = new List<Dictionary<string, object?>>();
@@ -1564,7 +1565,7 @@ public static partial class McpMod
     {
         var state = new Dictionary<string, object?>();
 
-        var inventory = merchantRoom.Inventory;
+        var inventory = merchantRoom.Inventories?.FirstOrDefault();
         if (inventory == null)
         {
             state["items"] = new List<Dictionary<string, object?>>();
@@ -1920,6 +1921,27 @@ public static partial class McpMod
 
             var cardInfo = BuildCardInfo(card);
             cardInfo["index"] = index;
+            bool isSelected = false;
+            try
+            {
+                var isSelProp = holder.GetType().GetProperty("IsSelected") 
+                             ?? holder.GetType().GetProperty("Selected");
+                if (isSelProp != null)
+                {
+                    isSelected = isSelProp.GetValue(holder) as bool? ?? false;
+                }
+                else
+                {
+                    var isSelField = holder.GetType().GetField("IsSelected", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                                  ?? holder.GetType().GetField("Selected", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (isSelField != null)
+                    {
+                        isSelected = isSelField.GetValue(holder) as bool? ?? false;
+                    }
+                }
+            }
+            catch {}
+            cardInfo["is_selected"] = isSelected;
             cards.Add(cardInfo);
             index++;
         }
